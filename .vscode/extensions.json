@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "leanprover.lean4",
+    "ms-toolsai.jupyter",
+    "executablebookproject.myst-highlight"
+  ]
+}

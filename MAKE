@@ -1,0 +1,132 @@
+.PHONY: dependencies setup setup_python setup_lean get_cache build_lean check_sorry update_lean clean_lean \
+	chek_diff_drive pull_drive push_drive sync_drive pull_one push_one sync_one pull_file push_file \
+	build_jupyter start_jupyter
+
+# Local paths are resolved from the repository folder, so the clone can have any name.
+PROJECT_ROOT := $(abspath $(CURDIR))
+REMOTE_BASE ?= gdriveuofa:repositories
+PROJECT = research-project-lean
+REMOTE := $(REMOTE_BASE)/$(PROJECT)
+DRYRUN ?= --dry-run
+ASSET_DIRS = _imagenes _literature
+DATA_DIR = _data
+DEBUG_DIR = _data/sims/debug/rclone
+LIB = ResearchLean
+BUILD_TYPE ?= pdf
+UNAME_S := $(shell uname -s)
+ELAN_BIN := $(HOME)/.elan/bin
+export PATH := $(ELAN_BIN):$(PATH)
+
+#-------------------------------Intallation------------------------------------
+dependencies:
+	curl https://rclone.org/install.sh | sudo bash
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+	curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+
+#-------------------------------Initialalize proyect----------------------------
+setup: setup_python setup_lean
+ifeq ($(UNAME_S),Linux)
+	sudo apt update
+	sudo apt install -y build-essential
+else ifeq ($(UNAME_S),Darwin)
+	@xcode-select -p >/dev/null 2>&1 || xcode-select --install
+endif
+
+setup_python:
+	uv sync --extra dev
+
+setup_lean: get_cache build_lean
+
+#-------------------------------Lean / Mathlib-----------------------------------
+# Downloads Mathlib (version pinned in lakefile.toml / lake-manifest.json) and its compiled .olean files.
+get_cache:
+	lake exe cache get
+
+# Compiles every module imported in $(LIB).lean
+build_lean:
+	lake build
+
+# Lists unfinished proofs
+check_sorry:
+	@grep -rn --include='*.lean' -w 'sorry' $(LIB) $(LIB).lean || echo "No sorry found"
+
+# Usage: make -f MAKE update_lean  (moves to the newest Mathlib: update lakefile.toml rev first, see README)
+update_lean:
+	curl -fsSL https://raw.githubusercontent.com/leanprover-community/mathlib4/master/lean-toolchain -o lean-toolchain
+	lake update
+	lake exe cache get
+	lake build
+
+clean_lean:
+	lake clean
+
+#-------------------------------Google Drive Connection--------------------------
+chek_diff_drive:
+	@mkdir -p "$(PROJECT_ROOT)/$(DEBUG_DIR)"
+	@echo "Checking differences between $(REMOTE) and $(PROJECT_ROOT)..."
+	@rclone check "$(REMOTE)" "$(PROJECT_ROOT)" \
+		--one-way \
+		--combined "$(PROJECT_ROOT)/$(DEBUG_DIR)/rclone_diff_$(shell date +%Y%m%d_%H%M%S).log" \
+		-v \
+		--exclude-from=.rcignore
+
+pull_drive:
+	@echo "Pulling from $(REMOTE) to $(PROJECT_ROOT)..."
+	@for dir in $(ASSET_DIRS); do \
+		rclone copy "$(REMOTE)/docs/assets/$$dir" "$(PROJECT_ROOT)/docs/assets/$$dir" -v -P $(DRYRUN); \
+	done
+	@rclone copy "$(REMOTE)/$(DATA_DIR)" "$(PROJECT_ROOT)/$(DATA_DIR)" -v -P $(DRYRUN)
+
+push_drive:
+	@echo "Pushing from $(PROJECT_ROOT) to $(REMOTE)..."
+	@for dir in $(ASSET_DIRS); do \
+		rclone copy "$(PROJECT_ROOT)/docs/assets/$$dir" "$(REMOTE)/docs/assets/$$dir" -v -P $(DRYRUN); \
+	done
+	@rclone copy "$(PROJECT_ROOT)/$(DATA_DIR)" "$(REMOTE)/$(DATA_DIR)" -v -P $(DRYRUN)
+
+sync_drive:
+	@echo "Sync from $(REMOTE) to $(PROJECT_ROOT)..."
+	@for dir in $(ASSET_DIRS); do \
+		rclone sync "$(REMOTE)/docs/assets/$$dir" "$(PROJECT_ROOT)/docs/assets/$$dir" -v -P $(DRYRUN) --exclude-from=.rcignore; \
+	done
+	@rclone sync "$(REMOTE)/$(DATA_DIR)" "$(PROJECT_ROOT)/$(DATA_DIR)" -v -P $(DRYRUN) --exclude-from=.rcignore
+
+# Usage: make -f MAKE pull_one DIR=docs/assets/_imagenes
+pull_one:
+	@if [ -z "$(DIR)" ]; then echo "Usage: make -f MAKE pull_one DIR=docs/assets/_imagenes"; exit 1; fi
+	@echo "Pulling folder $(DIR)..."
+	@rclone copy "$(REMOTE)/$(DIR)" "$(PROJECT_ROOT)/$(DIR)" -v -P $(DRYRUN) --exclude-from=.rcignore
+
+push_one:
+	@if [ -z "$(DIR)" ]; then echo "Usage: make -f MAKE push_one DIR=docs/assets/_imagenes"; exit 1; fi
+	@echo "Pushing folder $(PROJECT_ROOT)/$(DIR) to $(REMOTE)/$(DIR)..."
+	@rclone copy "$(PROJECT_ROOT)/$(DIR)" "$(REMOTE)/$(DIR)" -v -P $(DRYRUN)
+
+sync_one:
+	@if [ -z "$(DIR)" ]; then echo "Usage: make -f MAKE sync_one DIR=docs/assets/_imagenes"; exit 1; fi
+	@echo "Syncing folder $(REMOTE)/$(DIR) to $(PROJECT_ROOT)/$(DIR)..."
+	@rclone sync "$(REMOTE)/$(DIR)" "$(PROJECT_ROOT)/$(DIR)" -v -P $(DRYRUN) --exclude-from=.rcignore
+
+# Usage: make -f MAKE pull_file FILE=docs/assets/_literature/avigad2024theorem.pdf
+pull_file:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make -f MAKE pull_file FILE=path/to/file.ext"; exit 1; fi
+	@echo "Pulling file $(FILE)..."
+	@rclone copy "$(REMOTE)/$(FILE)" "$(PROJECT_ROOT)/$(dir $(FILE))" -v -P $(DRYRUN)
+
+# Usage: make -f MAKE push_file FILE=docs/assets/_literature/avigad2024theorem.pdf
+push_file:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make -f MAKE push_file FILE=path/to/file.ext"; exit 1; fi
+	@echo "Pushing file $(FILE)..."
+	@rclone copy "$(PROJECT_ROOT)/$(FILE)" "$(REMOTE)/$(dir $(FILE))" -v -P $(DRYRUN)
+
+#------------------------------------JupyterBook commands
+# Usage: make -f MAKE build_jupyter BUILD_TYPE=html|pdf|site|tex|docx  (the book project lives in docs/)
+build_jupyter:
+	@echo "Cleaning previous docs/_build/ outputs..."
+	@cd docs && uv run jupyter book clean --$(BUILD_TYPE) --temp -y
+	@echo "Building Jupyter Book with builder: $(BUILD_TYPE)"
+	@cd docs && uv run jupyter book build --$(BUILD_TYPE)
+
+# Live preview of the site at http://localhost:3000 (rebuilds on save)
+start_jupyter:
+	@cd docs && uv run jupyter book start

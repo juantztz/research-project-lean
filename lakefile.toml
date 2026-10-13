@@ -1,0 +1,15 @@
+name = "research_lean"
+version = "0.1.0"
+defaultTargets = ["ResearchLean"]
+
+[leanOptions]
+pp.unicode.fun = true   # pretty-print `fun a ↦ b`
+autoImplicit = false    # every variable must be declared explicitly
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.35.0"         # keep in sync with lean-toolchain (see README: Updating Lean and Mathlib)
+
+[[lean_lib]]
+name = "ResearchLean"

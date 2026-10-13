@@ -1,0 +1,11 @@
+version: 1
+project:
+  toc:
+    - file: introduction.md
+    - title: Repository Documentation
+      children:
+        - file: docs/README.md
+    - title: Proofs
+      children:
+        - file: docs/proofs/tutorial.md
+        - file: docs/proofs/basic.md

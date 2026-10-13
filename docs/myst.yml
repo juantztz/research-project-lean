@@ -1,0 +1,33 @@
+# See docs at: https://mystmd.org/guide/frontmatter
+version: 1
+project:
+  bibliography:
+    - references.bib
+  title: Lean Research Project
+  description: "Mathematical proofs formalized in the Lean 4 theorem prover with Mathlib."
+  venue: "University of Alberta"
+  authors:
+    - name: "Juan Tzintzun"
+      corresponding: true
+      affiliations:
+        - University of Alberta
+      email: tzintzun@ualberta.ca
+  github: https://github.com/juantztz/research-project-lean
+  numbering:
+    figure: true
+    equation: true
+    code: true
+    table: true
+    heading_1: true
+    heading_2: true
+    heading_3: false
+    heading_4: false
+    heading_5: false
+    heading_6: false
+  exclude:
+    - "_wip/**"
+site:
+  template: book-theme
+extends:
+  - export.yml
+  - toc.yml

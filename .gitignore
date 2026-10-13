@@ -1,0 +1,24 @@
+
+###ARCHIVOS
+.env
+log.log
+rclone_sync.log
+*.pyc
+
+###FOLDERS
+__pycache__/
+_data/
+docs/assets/_literature/
+docs/assets/_imagenes/
+docs/_build/
+.venv
+
+# Lean / Lake build outputs and downloaded dependencies (Mathlib)
+.lake/
+
+# macOS
+.DS_Store
+
+# MyST build outputs
+_build
+.ipynb_checkpoints/

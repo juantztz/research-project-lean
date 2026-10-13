@@ -1,0 +1,13 @@
+version: 1
+project:
+  exports:
+      - format: pdf
+        template: ./templates/plain_latex
+        title: "Lean Research Project"
+        authors:
+          - name: "Juan Tzintzun"
+        output: _build/exports/lean-research-project.pdf
+        articles:
+          - introduction.md
+          - docs/proofs/tutorial.md
+          - docs/proofs/basic.md
