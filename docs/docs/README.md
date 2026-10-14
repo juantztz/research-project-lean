@@ -11,7 +11,7 @@ This repository contains the Lean code and the documentation of a research proje
 | Lean code, configs, docs, notebooks, `references.bib` | GitHub `juantztz/research-project-lean` | `git pull` / `git push` |
 | Data (`_data/`), literature PDFs, images (`docs/assets/_*`) | Google Drive `gdriveuofa:repositories/research-project-lean` | `make -f MAKE pull_drive` / `push_drive` / `sync_drive` |
 | Lean toolchain (`~/.elan`) and Mathlib (`.lake/`) | Local only | `elan` reads `lean-toolchain`; `lake exe cache get` reads `lakefile.toml` + `lake-manifest.json` |
-| Python environment (`.venv/`) for Jupyter Book | Local only | `uv sync` from `pyproject.toml` + `uv.lock` |
+| Python environment (`.venv/`) for Jupyter Book and notebooks | Local only | `uv sync` from `pyproject.toml` + `uv.lock` |
 
 ---
 
@@ -38,7 +38,7 @@ make -f MAKE start_jupyter                       # live preview of the book at h
 | `git` + SSH key on GitHub | Cloning and pushing code; Lake also uses git to fetch Mathlib | [GitHub SSH guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) |
 | `elan` | Installs the Lean version written in `lean-toolchain` (Lean, `lake`) | `curl https://elan.lean-lang.org/elan-init.sh -sSf \| sh -s -- -y --default-toolchain none` · [install guide](https://lean-lang.org/install/) |
 | VS Code + *Lean 4* extension | Interactive proving (Infoview with goals and errors) | [VS Code](https://code.visualstudio.com/) · extension `leanprover.lean4` (recommended in `.vscode/extensions.json`) |
-| `uv` | Python 3.11–3.13 environment for Jupyter Book 2 | macOS: `brew install uv` · Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `uv` | Python 3.11–3.13 environment for Jupyter Book 2 and the notebooks | macOS: `brew install uv` · Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Node.js ≥ 18 | Jupyter Book 2 (MyST) runtime; offered automatically on the first build if missing | [nodejs.org](https://nodejs.org/) or `brew install node` |
 | `rclone` | Google Drive synchronization | macOS: `brew install rclone` · Linux: `curl https://rclone.org/install.sh \| sudo bash` |
 | `make` | Running the `MAKE` targets | macOS: `xcode-select --install` · Linux: `sudo apt install build-essential` |
@@ -100,15 +100,15 @@ make -f MAKE pull_drive DRYRUN=""    # actually copies
 
 This copies `_data/` and `docs/assets/{_imagenes,_literature}` into the local repository.
 
-### 5. Install the Python environment (Jupyter Book 2)
+### 5. Install the Python environment (Jupyter Book 2 and notebooks)
 
 ```bash
-uv sync                    # creates .venv with the exact versions in uv.lock (jupyter-book)
-uv sync --extra dev        # optional: jupyterlab, ipykernel, ipywidgets
+uv sync                          # creates .venv with the exact versions in uv.lock
+make -f MAKE register_kernel     # runs uv sync and registers the kernel "Python (research-lean)"
 uv run jupyter book --version
 ```
 
-Activate the environment with `source .venv/bin/activate`, or prefix commands with `uv run`. There is no Python package in this repository (`package = false` in `pyproject.toml`); uv only manages the environment.
+The environment contains Jupyter Book 2 and everything the notebooks need: `ipykernel`, `ipywidgets`, `jupyterlab`, `numpy`, `pandas`, `matplotlib`, and `sympy`. Add a package with `uv add <package>` and commit `pyproject.toml` and `uv.lock` together. Activate the environment with `source .venv/bin/activate`, or prefix commands with `uv run`. There is no Python package in this repository (`package = false` in `pyproject.toml`); uv only manages the environment.
 
 ### 6. Download Mathlib and build the library
 
@@ -121,7 +121,7 @@ make -f MAKE build_lean      # same as: lake build           (checks every proof
 Always run `lake exe cache get` before the first `lake build` and after every Mathlib update. Without the cache, Lake compiles Mathlib from source, which takes hours.
 ```
 
-`make -f MAKE setup` runs steps 5–6 (`uv sync --extra dev`, `lake exe cache get`, `lake build`) and then installs the build tools for the operating system: `build-essential` via `apt` on Linux, the Xcode Command Line Tools on macOS (only if they are missing).
+`make -f MAKE setup` runs steps 5–6 (`uv sync`, kernel registration, `lake exe cache get`, `lake build`) and then installs the build tools for the operating system: `build-essential` via `apt` on Linux, the Xcode Command Line Tools on macOS (only if they are missing).
 
 ### 7. Verify the setup
 
@@ -131,7 +131,7 @@ make -f MAKE check_sorry                     # "No sorry found"
 code .                                       # open ResearchLean/Basic.lean; the Infoview shows the goals
 ```
 
-`setup.sh` automates steps 4–6: it checks for `git`, `rclone`, `uv`, `elan`, and `make` (and warns if LaTeX is missing), pulls `_data` and `docs/assets` from Drive when the `gdriveuofa` remote exists, and runs `make setup`. Run it after steps 2–3 with `bash setup.sh` (it can be called from any folder; `MAKEFILE=<file>` overrides the default `MAKE`).
+`setup.sh` automates steps 4–6: it checks for `git`, `rclone`, `uv`, `elan`, and `make` (and warns if LaTeX or Node.js is missing), pulls `_data` and `docs/assets` from Drive when the `gdriveuofa` remote exists, runs `make setup`, and checks that the notebook kernel imports its packages. Run it after steps 2–3 with `bash setup.sh` (it can be called from any folder; `MAKEFILE=<file>` overrides the default `MAKE`).
 
 ---
 
@@ -403,7 +403,19 @@ make -f MAKE build_jupyter BUILD_TYPE=pdf     # same as: cd docs && uv run jupyt
 
 ### Notebooks
 
-Notebooks in `docs/notebooks/` are rendered with their saved outputs; they are **not** executed during the build. Add `--execute` to `jupyter book start`/`build` to execute them with the `.venv` kernel.
+Notebooks live in `docs/notebooks/` and use the kernel **Python (research-lean)**, which is the `.venv` created by uv.
+
+| Task | Command |
+|---|---|
+| Edit in JupyterLab | `make -f MAKE start_lab` (same as `uv run jupyter lab docs/notebooks`), then open <http://localhost:8888>. |
+| Edit in VS Code | Open the notebook, choose *Select Kernel → Python Environments → .venv* (or *Jupyter Kernel → Python (research-lean)*). |
+| Re-register the kernel | `make -f MAKE register_kernel` (after deleting or recreating `.venv`). |
+| Add a package | `uv add <package>`, then commit `pyproject.toml` and `uv.lock`. |
+
+* **Outputs are committed.** The book shows the outputs saved in the notebook and does **not** run it during the build, so run every cell (*Restart Kernel and Run All*) before committing. Keep outputs small; large data and figures go in `_data/` or `docs/assets/_imagenes/` (Google Drive), not inside the notebook.
+* **Execute during the build** by adding `--execute` to `jupyter book start`/`build` (from `docs/`); it uses the `.venv` kernel.
+* **Show a notebook in the book** by adding it to `docs/toc.yml`, e.g. `- file: notebooks/<name>.ipynb`.
+* Read data with paths relative to the notebook (e.g. `../../_data/input/...`), so the notebooks work in any clone.
 
 ### Cleaning and troubleshooting
 

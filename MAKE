@@ -1,6 +1,6 @@
 .PHONY: dependencies setup setup_python setup_lean get_cache build_lean check_sorry update_lean clean_lean \
 	chek_diff_drive pull_drive push_drive sync_drive pull_one push_one sync_one pull_file push_file \
-	build_jupyter start_jupyter
+	build_jupyter start_jupyter register_kernel start_lab
 
 # Local paths are resolved from the repository folder, so the clone can have any name.
 PROJECT_ROOT := $(abspath $(CURDIR))
@@ -13,6 +13,7 @@ DATA_DIR = _data
 DEBUG_DIR = _data/sims/debug/rclone
 LIB = ResearchLean
 BUILD_TYPE ?= pdf
+KERNEL_NAME = research-lean
 UNAME_S := $(shell uname -s)
 ELAN_BIN := $(HOME)/.elan/bin
 export PATH := $(ELAN_BIN):$(PATH)
@@ -32,8 +33,12 @@ else ifeq ($(UNAME_S),Darwin)
 	@xcode-select -p >/dev/null 2>&1 || xcode-select --install
 endif
 
-setup_python:
-	uv sync --extra dev
+setup_python: register_kernel
+
+# Registers .venv as the Jupyter kernel "Python (research-lean)" so JupyterLab/VS Code can select it
+register_kernel:
+	uv sync
+	uv run python -m ipykernel install --user --name $(KERNEL_NAME) --display-name "Python ($(KERNEL_NAME))"
 
 setup_lean: get_cache build_lean
 
@@ -130,3 +135,7 @@ build_jupyter:
 # Live preview of the site at http://localhost:3000 (rebuilds on save)
 start_jupyter:
 	@cd docs && uv run jupyter book start
+
+# JupyterLab for editing the notebooks in docs/notebooks (http://localhost:8888)
+start_lab:
+	uv run jupyter lab docs/notebooks

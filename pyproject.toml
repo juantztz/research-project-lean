@@ -1,19 +1,19 @@
 [project]
 name = "research-lean"
 version = "0.1.0"
-description = "Python environment of the Lean research project (Jupyter Book 2 documentation)"
+description = "Python environment of the Lean research project (Jupyter Book 2 documentation and notebooks)"
 requires-python = ">=3.11,<3.14"
 
 dependencies = [
     "jupyter-book>=2.1.0",
-]
-
-[project.optional-dependencies]
-
-dev = [
+    # Notebooks (docs/notebooks): kernel, editor, and scientific stack
     "ipykernel>=6.29",
     "ipywidgets>=8.1",
     "jupyterlab>=4.3",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "sympy>=1.13",
 ]
 
 [tool.uv]

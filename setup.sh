@@ -55,6 +55,11 @@ if ! command -v xelatex >/dev/null 2>&1 && ! command -v pdflatex >/dev/null 2>&1
   echo "         Only PDF exports of the book need it (macOS: https://tug.org/mactex/, Linux: sudo apt install texlive-full)."
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "WARNING: Node.js is not installed (node not found)."
+  echo "         Jupyter Book 2 needs Node.js >= 18; it offers to install it on the first build (macOS: brew install node)."
+fi
+
 if ! command -v make >/dev/null 2>&1; then
   echo "make is not installed or not in PATH"
   echo
@@ -86,3 +91,9 @@ fi
 echo "Creating Python environment with uv and downloading Mathlib (this takes a few minutes)..."
 make -f "${MAKEFILE}" setup
 echo "Initializing environment completed successfully"
+
+# ----------------------------
+# Step 4: check the notebook kernel
+# ----------------------------
+uv run python -c "import ipykernel, numpy, pandas, matplotlib, sympy" \
+  && echo "Notebook kernel 'Python (research-lean)' is ready (make -f ${MAKEFILE} start_lab)"
